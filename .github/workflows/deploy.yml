@@ -1,0 +1,42 @@
+name: Deploy Portfolio
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to AWS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ${{ secrets.AWS_USER }}
+          key: ${{ secrets.AWS_SSH_KEY }}
+          port: 22
+          script_stop: true
+
+          script: |
+            cd ~/my-portfolio
+
+            echo "Pulling latest code..."
+            git fetch origin
+            git reset --hard origin/main
+
+            echo "Building Docker image..."
+            docker build -t my-portfolio .
+
+            echo "Removing old container..."
+            docker rm -f my-portfolio-container || true
+
+            echo "Starting new container..."
+            docker run -d \
+              --name my-portfolio-container \
+              --restart unless-stopped \
+              -p 80:80 \
+              my-portfolio
+
+            echo "Deployment successful!"
